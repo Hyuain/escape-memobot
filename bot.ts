@@ -19,6 +19,12 @@ wechaty
     axios.get('/api/v1/tests/connection').then((res) => {
       console.log('requestRes', res.data)
     })
+    if (text.startsWith('！！ ')) {
+      console.log(message.text())
+      message.say(`你刚刚说了：${text.slice(3)}`)
+    }
+    // if (message.from().name === '蒜蓉海鲜酱') {
+    // }
     if (type === PUPPET.types.Message.Text) {
       processTextMessage(message)
     } else if (type === PUPPET.types.Message.Url) {
