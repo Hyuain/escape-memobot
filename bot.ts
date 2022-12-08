@@ -19,7 +19,7 @@ wechaty
     axios.get('/api/v1/tests/connection').then((res) => {
       console.log('requestRes', res.data)
     })
-    if (text.startsWith('！！ ')) {
+    if (text.startsWith('@Harvey')) {
       console.log(message.text())
       message.say(`你刚刚说了：${text.slice(3)}`)
     }
