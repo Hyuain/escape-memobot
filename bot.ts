@@ -41,6 +41,7 @@ wechaty.start()
 const processTextMessage = (message: Message) => {
   const text = message.text()
   const id = getBotInfoId(message)
+  console.log(`${message.talker().name()}: ${message.text()}`)
   if (checkSummon(message)) {
     botInfos[id].status = Status.ACTIVE
     message.say('我来啦~')
@@ -53,7 +54,7 @@ const processTextMessage = (message: Message) => {
     axios.post('http://localhost:3389/generate', {
       data: [text]
     }).then((res) => {
-      console.log(res)
+      console.log(res.data)
       message.say(res.data)
     })
   }
