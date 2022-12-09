@@ -1,8 +1,8 @@
 import { Message, WechatyBuilder } from 'wechaty'
 import { XMLParser } from 'fast-xml-parser'
-import * as PUPPET from 'wechaty-puppet'
 import axios from 'axios'
-import { IBotInfo, InfoType, Status } from './bot.interface'
+import { IBotInfo, InfoType, MessageType, Status } from './bot.interface'
+
 
 const parser = new XMLParser()
 
@@ -18,7 +18,12 @@ const getDefaultBotInfo = (type: InfoType): IBotInfo => {
 
 const botInfos: { [id in string]: IBotInfo } = {}
 
-const wechaty = WechatyBuilder.build()
+const wechaty = WechatyBuilder.build({
+  puppetOptions: {
+    uos: true  // 开启uos协议
+  },
+  puppet: 'wechaty-puppet-wechat',
+})
 wechaty
   .on('scan', (qrcode, status) => console.log(`Scan QR Code to login: ${status}\nhttps://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`))
   .on('login', user => console.log(`User ${user} logged in`))
@@ -30,9 +35,9 @@ wechaty
     // axios.get('/api/v1/tests/connection').then((res) => {
     //   console.log('requestRes', res.data)
     // })
-    if (type === PUPPET.types.Message.Text) {
+    if (type === MessageType.Text) {
       processTextMessage(message)
-    } else if (type === PUPPET.types.Message.Url) {
+    } else if (type === MessageType.Url) {
       processUrlMessage(message)
     }
   })
