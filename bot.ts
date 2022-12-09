@@ -2,29 +2,34 @@ import { Message, WechatyBuilder } from 'wechaty'
 import { XMLParser } from 'fast-xml-parser'
 import * as PUPPET from 'wechaty-puppet'
 import axios from 'axios'
-
-
+import { IBotInfo, InfoType, Status } from './bot.interface'
 
 const parser = new XMLParser()
 
-axios.defaults.baseURL = 'http://localhost:3000'
+// axios.defaults.baseURL = 'http://localhost:3000'
 
-const wechaty = WechatyBuilder.build() // get a Wechaty instance
+const getDefaultBotInfo = (type: InfoType): IBotInfo => {
+  return {
+    type,
+    status: Status.INACTIVE,
+    memo: false,
+  }
+}
+
+const botInfos: { [id in string]: IBotInfo } = {}
+
+const wechaty = WechatyBuilder.build()
 wechaty
   .on('scan', (qrcode, status) => console.log(`Scan QR Code to login: ${status}\nhttps://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`))
   .on('login', user => console.log(`User ${user} logged in`))
   .on('message', message => {
-    const text = message.text()
+    if (message.self()) { return }
     const type = message.type()
-    axios.get('/api/v1/tests/connection').then((res) => {
-      console.log('requestRes', res.data)
-    })
-    if (text.startsWith('@Harvey')) {
-      console.log(message.text())
-      message.say(`你刚刚说了：${text.slice(3)}`)
-    }
-    // if (message.from().name === '蒜蓉海鲜酱') {
-    // }
+    const id = getBotInfoId(message)
+    initBotInfo(id, message.room() ? InfoType.ROOM : InfoType.PERSONAL)
+    // axios.get('/api/v1/tests/connection').then((res) => {
+    //   console.log('requestRes', res.data)
+    // })
     if (type === PUPPET.types.Message.Text) {
       processTextMessage(message)
     } else if (type === PUPPET.types.Message.Url) {
@@ -34,7 +39,24 @@ wechaty
 wechaty.start()
 
 const processTextMessage = (message: Message) => {
-  console.log('xxx', message.text())
+  const text = message.text()
+  const id = getBotInfoId(message)
+  if (checkSummon(message)) {
+    botInfos[id].status = Status.ACTIVE
+    message.say('我来啦~')
+  } else if (checkExit(message)) {
+    if (botInfos[id].status === Status.ACTIVE) {
+      message.say('我走啦')
+      botInfos[id].status = Status.INACTIVE
+    }
+  } else if (botInfos[id].status === Status.ACTIVE) {
+    axios.post('http://localhost:3389/generate', {
+      data: [text]
+    }).then((res) => {
+      console.log(res)
+      message.say(res.data)
+    })
+  }
 }
 
 const processUrlMessage = (message: Message) => {
@@ -47,4 +69,24 @@ const processUrlMessage = (message: Message) => {
   const title = msg.appmsg?.title
   const url = msg.appmsg?.url
   console.log(appName, title, url)
+}
+
+const checkSummon = (message: Message) => {
+  const text = message.text()
+  return text.startsWith('！！召唤机器人')
+}
+
+const checkExit = (message: Message) => {
+  const text = message.text()
+  return text.startsWith('退下')
+}
+
+const getBotInfoId = (message: Message): string => {
+  const room = message.room()
+  return room ? room.id : message.talker().id
+}
+
+const initBotInfo = (id: string, type: InfoType) => {
+  if (botInfos[id]) { return }
+  botInfos[id] = getDefaultBotInfo(type)
 }
