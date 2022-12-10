@@ -33,5 +33,10 @@ export interface IConversationInfo {
   type: ConversationType
   status: Status
   memo: boolean
-  textHistory: string[]
+  textHistory: IConversationTextHistory[]
+}
+
+export interface IConversationTextHistory {
+  time: Date
+  text: string
 }

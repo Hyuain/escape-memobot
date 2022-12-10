@@ -1,12 +1,14 @@
 import { Message, WechatyBuilder } from 'wechaty'
 import { XMLParser } from 'fast-xml-parser'
 import axios from 'axios'
-import { IConversationInfo, ConversationType, MessageType, Status } from './bot.interface'
+import { IConversationInfo, ConversationType, MessageType, Status, IConversationTextHistory } from './bot.interface'
 
 
 const parser = new XMLParser()
 
-const HISTORY_MAX_LENGTH = 5
+const HISTORY_MAX_LENGTH = 10
+const CHITCHAT_MAX_LENGTH = 5
+const CHITCHAT_MAX_TIME = 3 * 60 * 1000
 
 // axios.defaults.baseURL = 'http://localhost:3000'
 
@@ -68,9 +70,9 @@ const processTextMessage = async (message: Message) => {
     }
   } else if (conversationInfos[id].status === Status.ACTIVE) {
     try {
-      const res = await axios.post('http://localhost:3389/generate', {
-        data: conversationInfos[id].textHistory,
-      })
+      const data = getTextsSendToChitchat(conversationInfos[id].textHistory)
+      console.log('xxxSendToChitchat', data)
+      const res = await axios.post('http://localhost:3389/generate', { data })
       console.log(res.data)
       message.say(res.data)
     } catch (e) {
@@ -115,8 +117,21 @@ const addMessageToHistory = async (message: Message) => {
   const id = await getConversationId(message)
   if (message.type() !== MessageType.Text) { return }
   const textHistory = conversationInfos[id].textHistory
-  textHistory.push(message.text())
+  textHistory.push({
+    time: new Date(),
+    text: message.text(),
+  })
   if (textHistory.length > HISTORY_MAX_LENGTH) {
     textHistory.splice(0, textHistory.length - HISTORY_MAX_LENGTH)
   }
+}
+
+const getTextsSendToChitchat = (textHistory: IConversationTextHistory[]): string[] => {
+  const texts = textHistory.filter((history) => {
+    return history.time.getTime() > Date.now() - CHITCHAT_MAX_TIME
+  })
+  if (texts.length > CHITCHAT_MAX_LENGTH) {
+    texts.splice(0, texts.length - CHITCHAT_MAX_LENGTH)
+  }
+  return texts.map((item) => item.text)
 }
