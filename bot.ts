@@ -7,7 +7,7 @@ import { IConversationInfo, ConversationType, MessageType, Status, IConversation
 const parser = new XMLParser()
 
 const HISTORY_MAX_LENGTH = 10
-const CHITCHAT_MAX_LENGTH = 5
+const CHITCHAT_MAX_LENGTH = 3
 const CHITCHAT_MAX_TIME = 3 * 60 * 1000
 
 // axios.defaults.baseURL = 'http://localhost:3000'
