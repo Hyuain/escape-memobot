@@ -1,41 +1,46 @@
 import { Message, WechatyBuilder } from 'wechaty'
 import { XMLParser } from 'fast-xml-parser'
 import axios from 'axios'
-import { IBotInfo, InfoType, MessageType, Status } from './bot.interface'
+import { IConversationInfo, ConversationType, MessageType, Status } from './bot.interface'
 
 
 const parser = new XMLParser()
 
+const HISTORY_MAX_LENGTH = 5
+
 // axios.defaults.baseURL = 'http://localhost:3000'
 
-const getDefaultBotInfo = (type: InfoType): IBotInfo => {
+const getDefaultConversationInfo = (type: ConversationType): IConversationInfo => {
   return {
     type,
     status: Status.INACTIVE,
     memo: false,
+    textHistory: [],
   }
 }
 
-const botInfos: { [id in string]: IBotInfo } = {}
+const conversationInfos: { [id in string]: IConversationInfo } = {}
 
 const wechaty = WechatyBuilder.build({
   puppetOptions: {
-    uos: true  // 开启uos协议
+    uos: true,  // 开启uos协议
   },
   puppet: 'wechaty-puppet-wechat',
 })
 wechaty
   .on('scan', (qrcode, status) => console.log(`Scan QR Code to login: ${status}\nhttps://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`))
-  .on('login', user => console.log(`User ${user} logged in`))
-  .on('message', message => {
-    if (message.self()) { return }
+  .on('login', (user) => console.log(`User ${user} logged in`))
+  .on('message', async (message) => {
     const type = message.type()
-    const id = getBotInfoId(message)
-    initBotInfo(id, message.room() ? InfoType.ROOM : InfoType.PERSONAL)
+    const id = await getConversationId(message)
+    initConversationInfo(id, message.room() ? ConversationType.ROOM : ConversationType.PERSONAL)
+    await addMessageToHistory(message)
+    if (message.self()) { return }
     // axios.get('/api/v1/tests/connection').then((res) => {
     //   console.log('requestRes', res.data)
     // })
     console.log(`${message.talker().name()}: ${message.text()}`)
+    console.log(`history: ${conversationInfos[id].textHistory}`)
     if (type === MessageType.Text) {
       processTextMessage(message)
     } else if (type === MessageType.Url) {
@@ -50,26 +55,27 @@ wechaty
   })
 wechaty.start()
 
-const processTextMessage = (message: Message) => {
+const processTextMessage = async (message: Message) => {
   const text = message.text()
-  const id = getBotInfoId(message)
+  const id = await getConversationId(message)
   if (checkSummon(message)) {
-    botInfos[id].status = Status.ACTIVE
+    conversationInfos[id].status = Status.ACTIVE
     message.say('我来啦~')
   } else if (checkExit(message)) {
-    if (botInfos[id].status === Status.ACTIVE) {
+    if (conversationInfos[id].status === Status.ACTIVE) {
       message.say('我走啦')
-      botInfos[id].status = Status.INACTIVE
+      conversationInfos[id].status = Status.INACTIVE
     }
-  } else if (botInfos[id].status === Status.ACTIVE) {
-    axios.post('http://localhost:3389/generate', {
-      data: [text]
-    }).then((res) => {
+  } else if (conversationInfos[id].status === Status.ACTIVE) {
+    try {
+      const res = await axios.post('http://localhost:3389/generate', {
+        data: conversationInfos[id].textHistory,
+      })
       console.log(res.data)
       message.say(res.data)
-    }).catch((err) => {
-      console.log('xxxGenerateError', err)
-    })
+    } catch (e) {
+      console.log('xxxGenerateError', e)
+    }
   }
 }
 
@@ -95,12 +101,22 @@ const checkExit = (message: Message) => {
   return text.startsWith('退下')
 }
 
-const getBotInfoId = (message: Message): string => {
+const getConversationId = async (message: Message): Promise<string> => {
   const room = message.room()
-  return room ? room.id : message.talker().id
+  return room ? room.topic() : message.talker().name()
 }
 
-const initBotInfo = (id: string, type: InfoType) => {
-  if (botInfos[id]) { return }
-  botInfos[id] = getDefaultBotInfo(type)
+const initConversationInfo = (id: string, type: ConversationType) => {
+  if (conversationInfos[id]) { return }
+  conversationInfos[id] = getDefaultConversationInfo(type)
+}
+
+const addMessageToHistory = async (message: Message) => {
+  const id = await getConversationId(message)
+  if (message.type() !== MessageType.Text) { return }
+  const textHistory = conversationInfos[id].textHistory
+  textHistory.push(message.text())
+  if (textHistory.length > HISTORY_MAX_LENGTH) {
+    textHistory.splice(0, textHistory.length - HISTORY_MAX_LENGTH)
+  }
 }

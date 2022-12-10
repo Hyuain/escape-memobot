@@ -24,13 +24,14 @@ export enum Status {
   ACTIVE,
 }
 
-export enum InfoType {
+export enum ConversationType {
   PERSONAL = 1,
   ROOM
 }
 
-export interface IBotInfo {
-  type: InfoType
+export interface IConversationInfo {
+  type: ConversationType
   status: Status
   memo: boolean
+  textHistory: string[]
 }
