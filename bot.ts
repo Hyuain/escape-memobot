@@ -35,18 +35,24 @@ wechaty
     // axios.get('/api/v1/tests/connection').then((res) => {
     //   console.log('requestRes', res.data)
     // })
+    console.log(`${message.talker().name()}: ${message.text()}`)
     if (type === MessageType.Text) {
       processTextMessage(message)
     } else if (type === MessageType.Url) {
       processUrlMessage(message)
     }
   })
+  .on('heartbeat', (x) => {
+    console.log(new Date(), 'heartBeat', x)
+  })
+  .on('error', err => {
+    console.log('xxxBotError', err)
+  })
 wechaty.start()
 
 const processTextMessage = (message: Message) => {
   const text = message.text()
   const id = getBotInfoId(message)
-  console.log(`${message.talker().name()}: ${message.text()}`)
   if (checkSummon(message)) {
     botInfos[id].status = Status.ACTIVE
     message.say('我来啦~')
@@ -61,6 +67,8 @@ const processTextMessage = (message: Message) => {
     }).then((res) => {
       console.log(res.data)
       message.say(res.data)
+    }).catch((err) => {
+      console.log('xxxGenerateError', err)
     })
   }
 }
