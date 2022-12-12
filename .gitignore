@@ -1,2 +1,4 @@
 node_modules
 .idea
+wechat-puppet-wechat.memory-card.json
+*.log

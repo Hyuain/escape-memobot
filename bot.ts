@@ -1,10 +1,21 @@
-import { Message, WechatyBuilder } from 'wechaty'
+import { log, Message, WechatyBuilder } from 'wechaty'
 import { XMLParser } from 'fast-xml-parser'
 import axios from 'axios'
 import { IConversationInfo, ConversationType, MessageType, Status, IConversationTextHistory } from './bot.interface'
+import log4js from 'log4js'
 
+log4js.configure({
+  appenders: {
+    fileLog: { type: 'file', filename: 'memobot.log' }
+  },
+  categories: {
+    default: { appenders: ['fileLog'], level: 'debug' }
+  }
+})
 
 const parser = new XMLParser()
+const logger = log4js.getLogger()
+logger.level = 'debug'
 
 const HISTORY_MAX_LENGTH = 10
 const CHITCHAT_MAX_LENGTH = 3
@@ -38,22 +49,18 @@ wechaty
     initConversationInfo(id, message.room() ? ConversationType.ROOM : ConversationType.PERSONAL)
     await addMessageToHistory(message)
     if (message.self()) { return }
-    // axios.get('/api/v1/tests/connection').then((res) => {
-    //   console.log('requestRes', res.data)
-    // })
-    console.log(`${message.talker().name()}: ${message.text()}`)
-    console.log(`history: ${conversationInfos[id].textHistory}`)
+    logger.debug(`${message.talker().name()}: ${message.text()}`)
     if (type === MessageType.Text) {
       processTextMessage(message)
     } else if (type === MessageType.Url) {
       processUrlMessage(message)
     }
   })
-  .on('heartbeat', (x) => {
-    console.log(new Date(), 'heartBeat', x)
+  .on('heartbeat', (hb) => {
+    logger.debug(`heartBeat ${hb}`)
   })
   .on('error', err => {
-    console.log('xxxBotError', err)
+    logger.error('xxxBotError', err)
   })
 wechaty.start()
 
@@ -71,12 +78,12 @@ const processTextMessage = async (message: Message) => {
   } else if (conversationInfos[id].status === Status.ACTIVE) {
     try {
       const data = getTextsSendToChitchat(conversationInfos[id].textHistory)
-      console.log('xxxSendToChitchat', data)
+      logger.debug('xxxSendToChitchat', data)
       const res = await axios.post('http://localhost:3389/generate', { data })
-      console.log(res.data)
+      logger.debug(res.data)
       message.say(res.data)
     } catch (e) {
-      console.log('xxxGenerateError', e)
+      logger.error('xxxGenerateError', e)
     }
   }
 }
@@ -90,7 +97,7 @@ const processUrlMessage = (message: Message) => {
   const appName = msg.appinfo?.appname
   const title = msg.appmsg?.title
   const url = msg.appmsg?.url
-  console.log(appName, title, url)
+  logger.debug('xxxUrlMsg', appName, title, url)
 }
 
 const checkSummon = (message: Message) => {
